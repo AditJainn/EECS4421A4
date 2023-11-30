@@ -70,6 +70,7 @@ def euler_from_quaternion(quaternion):
 
 class FSM_STATES(Enum):
     AT_START = 'AT STart',
+    FIND_PATH = 'Finding Path',
     HEADING_TO_TASK = 'Heading to Task',
     # need to add a task state(s)
     #==============================================
@@ -146,9 +147,15 @@ class FSM(Node):
         now = self.get_clock().now().nanoseconds * 1e-9
         if now > (self._start_time + 2):
             # once the 2 seconds have passed, lets head to our task
-            self._cur_state = FSM_STATES.HEADING_TO_TASK
-            
+            self._cur_state = FSM_STATES.FIND_PATH
+    def _do_state_find_path(self):
+        listOfPoitns = []
+
+        
+
+        pass
     def _do_state_heading_to_task(self):
+        
         self.get_logger().info(f'{self.get_name()} heading to task {self._cur_x} {self._cur_y} {self._cur_theta}')
         if self._drive_to_goal(3, 3, math.pi/2):
             self._cur_state = FSM_STATES.PERFORMING_TASK
@@ -196,6 +203,8 @@ class FSM(Node):
     def _state_machine(self):
         if self._cur_state == FSM_STATES.AT_START:
             self._do_state_at_start()
+        if self._cur_state == FSM_STATES.FIND_PATH:
+            self._do_state_find_path()
         elif self._cur_state == FSM_STATES.HEADING_TO_TASK:
             self._do_state_heading_to_task()
         elif self._cur_state == FSM_STATES.PERFORMING_TASK:
