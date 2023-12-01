@@ -285,6 +285,9 @@ class FSM(Node):
         
         finishPoint = self.point(finish_x, finish_y)
         finishPoint.color=(255, 255, 0)
+        import time
+        time.sleep(5)
+        print(f"THE POISN ARE 0000000")
         print(f"{startVertex.x,startVertex.y}")
         print(f"{finishPoint.x,finishPoint.y}")
 
@@ -328,8 +331,14 @@ class FSM(Node):
             print(f"Location: {newNode.x} , {newNode.y}")
             self.drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
             newNode = newNode.prev
+            
+        rrt.reverse()
         cv2.imwrite("createdMap.jpg",self.world)
+        
         return rrt 
+
+# END PATH FINDING COMPONENT
+#===========================================================================================================================
 
     def _drive_to_goal(self, goal_x, goal_y, goal_theta):
         self.get_logger().info(f'CURRENT GOAL ({goal_x}, {goal_y})')
@@ -392,10 +401,10 @@ class FSM(Node):
         # readImageTemp.process_json_data(data)
         # You need to convert to pixels when sending path information
         self.pathList = self.getPathTo(
-            start_x = self._cur_x * 100,
-            start_y = ( 10 - self._cur_y ) * 100,
-            finish_x = 5 * 100, 
-            finish_y = (10-5) * 100 ,
+            start_x = int(self._cur_x * 100),
+            start_y = int(( 10 - self._cur_y ) * 100),
+            finish_x = int(4 * 100), 
+            finish_y = int((10-4) * 100) ,
         )
     
         # Open the file in write mode ('w')
@@ -429,12 +438,11 @@ class FSM(Node):
                 print(f"{curPoint} not found in the list.")
             if index == (len(self.pathList)-1): # Is at Goal 
                 self.get_logger().info(f'{self.get_name()} Have reached the Radioactive site')
-                self._cur_state = FSM_STATES.RETURNING_FROM_TASK
-            else: 
                 self._cur_state = FSM_STATES.SCAN_SITE
+            else: 
+                self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
-                print(self.pathList)
-                time.sleep(5)
+                
                 newCurX = self.pathList[index+1][0]
                 newCurY = self.pathList[index+1][1]
                 newTheta = self._cur_theta
