@@ -322,7 +322,7 @@ class FSM(Node):
             
             print('\n')  
         while(newNode.prev != None):
-            rrt.append((newNode.x/100.0,newNode.y/100.0))
+            rrt.append([newNode.x/100.0,newNode.y/100.0])
             print(f"Location: {newNode.x} , {newNode.y}")
             self.drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
             newNode = newNode.prev
@@ -385,7 +385,8 @@ class FSM(Node):
         # readImageTemp.process_json_data(data)
         self.pathList = self.getPathTo()
         # time.sleep(10)
-        self.currentGoal = [3,3,(math.pi/2)]
+    
+        self.currentGoal = [self.pathList[0][0],self.pathList[0][1],(math.pi/2)]
         self._cur_state = FSM_STATES.HEADING_TO_TASK
 
 
@@ -397,8 +398,8 @@ class FSM(Node):
     #=======================================================================================================================
     # HERE WE ARE HEADING TO GOAL (I.E., HEADING TO THE STARTING POSITION WHERE WE WILL BEGIN TO CUT THE GRASS)
     def _do_state_performing_task(self):
-        isAtGoal = self._drive_to_goal(self.currentGoal)
-        # self.get_logger().info(f'{self.currentGoal} \n')
+        isAtGoal = self._drive_to_goal(*self.currentGoal)
+        self.get_logger().info(f'{self.currentGoal} PERFORMING TASK ')
         x=0
         y=1 
         import time
@@ -422,6 +423,7 @@ class FSM(Node):
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
                 newGoal = self.pathList[index+1]
                 newGoal = newGoal.append(self._cur_theta)
+                print(self._cur_theta)
                 print(newGoal)
                 time.sleep(5)
                 self.currentGoal =  newGoal
