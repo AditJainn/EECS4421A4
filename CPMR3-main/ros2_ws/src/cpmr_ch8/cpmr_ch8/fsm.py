@@ -98,7 +98,8 @@ class FSM(Node):
         self._cur_theta = 0.0
         self._cur_state = FSM_STATES.AT_START
         self._start_time = self.get_clock().now().nanoseconds * 1e-9
-        self. currentGoal = []
+        self.currentGoal = []
+        self.goalList = [[4,4,math.pi/2],[4,6,math.pi],[4.5,6,3*(math.pi/2)],[4.5,4,math.pi]]
         self.pathList = [] 
         self.robotSpeed=0.3
         self.currentIndex =0
@@ -285,6 +286,9 @@ class FSM(Node):
         
         finishPoint = self.point(finish_x, finish_y)
         finishPoint.color=(255, 255, 0)
+        import time
+        time.sleep(5)
+        print(f"THE POISN ARE 0000000")
         print(f"{startVertex.x,startVertex.y}")
         print(f"{finishPoint.x,finishPoint.y}")
 
@@ -328,8 +332,14 @@ class FSM(Node):
             print(f"Location: {newNode.x} , {newNode.y}")
             self.drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
             newNode = newNode.prev
+            
+        rrt.reverse()
         cv2.imwrite("createdMap.jpg",self.world)
+        
         return rrt 
+
+# END PATH FINDING COMPONENT
+#===========================================================================================================================
 
     def _drive_to_goal(self, goal_x, goal_y, goal_theta):
         self.get_logger().info(f'CURRENT GOAL ({goal_x}, {goal_y})')
@@ -433,8 +443,7 @@ class FSM(Node):
             else: 
                 self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
-                print(self.pathList)
-                time.sleep(5)
+                
                 newCurX = self.pathList[index+1][0]
                 newCurY = self.pathList[index+1][1]
                 newTheta = self._cur_theta
@@ -484,7 +493,6 @@ class FSM(Node):
             # self.get_logger().info(f'{self.currentGoal} \n')
         x=0
         y=1
-        
         
         if isAtGoal:
             if self.currentGoal[x] == 5 and self.currentGoal[y] == 4:
