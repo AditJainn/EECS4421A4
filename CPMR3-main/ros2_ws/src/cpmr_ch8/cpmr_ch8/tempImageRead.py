@@ -24,4 +24,5 @@ points = [
 
 x = points[0]
 x.append(0.3)
+
 print(x) 

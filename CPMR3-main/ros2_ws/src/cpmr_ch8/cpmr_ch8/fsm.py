@@ -103,7 +103,7 @@ class FSM(Node):
         self.pathList = [] 
         self.robotSpeed=0.3
         self.currentIndex =0
-        self.numberOfNodes = 1500
+        self.numberOfNodes = 500
 
         self.fileName = "map.json"
         self.world_size = (1000, 1000)
@@ -299,7 +299,7 @@ class FSM(Node):
         random_index = random.randint(0, len(listOfVertix))
         listOfVertix.insert(random_index, finishPoint)
         exploredVertexList.append(startVertex)
-
+        cv2.imwrite("createdMap.jpg",self.world)
         # iterate through the list of points (vertices) until we reach the goal vertex
         while(len(listOfVertix) > 0):
             # graphNode is the node we are searching FROM and newNode is the node we are searching FOR
@@ -355,9 +355,9 @@ class FSM(Node):
         heading = math.atan2(y_diff, x_diff)
         if abs(self._cur_theta - heading) > math.pi/20: 
             if heading > self._cur_theta:
-                twist.angular.z = 0.10
+                twist.angular.z = 0.20
             else:
-               twist.angular.z = -0.10
+               twist.angular.z = -0.20
             self.get_logger().info(f'{self.get_name()} turning towards goal')
             self._publisher.publish(twist)
             return False
@@ -404,10 +404,11 @@ class FSM(Node):
         self.pathList = self.getPathTo(
             start_x = int(self._cur_x * 100),
             start_y = int(( 10 - self._cur_y ) * 100),
-            finish_x = int(5 * 100), 
-            finish_y = int((10-5) * 100) ,
+            finish_x = int(4.0 * 100), 
+            finish_y = int((10-4.0) * 100) ,
         )
-    
+        if len(self.pathList)> 10:
+            self.pathList = self.pathList[-10:]
         # Open the file in write mode ('w')
         with open("MapPathList.txt", 'w') as file:
             # Iterate through the list and write each element to a new line
@@ -439,6 +440,7 @@ class FSM(Node):
                 print(f"{curPoint} not found in the list.")
             if index == (len(self.pathList)-1): # Is at Goal 
                 self.get_logger().info(f'{self.get_name()} Have reached the Radioactive site')
+                self.currentGoal = [4,4,math.pi/2]
                 self._cur_state = FSM_STATES.SCAN_SITE
             else: 
                 self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
@@ -450,7 +452,37 @@ class FSM(Node):
                 newGoal = [newCurX,newCurY,newTheta]
                 self.currentGoal =  [newCurX,newCurY,newTheta]
                 print(f"____RESET NEW GOAL TO {newGoal}____")
+               	 	 
+    #=======================================================================================================================
+    
+    # HERE WE ARE SCANNING THE RADIOACTIVE AREA FOLLOWING THE LAWNMOWER PATTERN
+    def _do_state_scan_site(self):
+        print(self.currentGoal)
+        isAtGoal = self._drive_to_goal(*self.currentGoal)
+            # self.get_logger().info(f'{self.currentGoal} \n')
+        x=0
+        y=1
         
+        if isAtGoal:
+            if self.currentGoal[x] == 5 and self.currentGoal[y] == 4:
+                self.get_logger().info(f'{self.get_name()} completed Scan of land')
+                newCurX = self.pathList[-1][0]
+                newCurY = self.pathList[-1][1]
+                newTheta = self._cur_theta
+                self.currentGoal= [newCurX,newCurY,newTheta]
+                self._cur_state = FSM_STATES.RETURNING_FROM_RADIO_SITE  
+            elif self.currentGoal == self.goalList[3]:
+                self.get_logger().info(f'{self.get_name()} Turning to next row')
+                for goal in self.goalList:
+                    goal[x] += 1
+                self.currentGoal = self.goalList[0]
+            else:
+                self._cur_state = FSM_STATES.SCAN_SITE
+                self.get_logger().info(f'{self.get_name()} mowing the row')
+                index = self.goalList.index(self.currentGoal)
+                self.currentGoal = self.goalList[index+1]
+    #=======================================================================================================================
+
     def _do_state_returning_from_radio_Site(self): # not complete
         print(self.currentGoal)
         isAtGoal = self._drive_to_goal(*self.currentGoal)
@@ -469,14 +501,13 @@ class FSM(Node):
                 print(f"Current index: {index}")
             except ValueError:
                 print(f"{curPoint} not found in the list.")
-            if len(self.pathList)-1 - index == 0: # Is at Goal 
+            if index == 0: # Is at Goal 
                 self.get_logger().info(f'{self.get_name()} Have reached the beginging of site')
                 self._cur_state = FSM_STATES.RETURNING_FROM_TASK
             else: 
                 self._cur_state = FSM_STATES.RETURNING_FROM_RADIO_SITE
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
                 print(self.pathList)
-                time.sleep(5)
                 newCurX = self.pathList[index-1][0]
                 newCurY = self.pathList[index-1][1]
                 newTheta = self._cur_theta
@@ -484,34 +515,6 @@ class FSM(Node):
                 self.currentGoal =  [newCurX,newCurY,newTheta]
                 print(f"____RESET NEW GOAL TO {newGoal}____")
         
-       	 	 
-    #=======================================================================================================================
-    
-    # HERE WE ARE SCANNING THE RADIOACTIVE AREA FOLLOWING THE LAWNMOWER PATTERN
-    def _do_state_scan_site(self):
-        isAtGoal = self._drive_to_goal(*self.currentGoal)
-            # self.get_logger().info(f'{self.currentGoal} \n')
-        x=0
-        y=1
-        
-        if isAtGoal:
-            if self.currentGoal[x] == 5 and self.currentGoal[y] == 4:
-                self.get_logger().info(f'{self.get_name()} completed mowing grass')
-                self._cur_state = FSM_STATES.RETURNING_FROM_TASK # This needs to be changed 
-            
-            elif self.currentGoal == self.goalList[3]:
-                self.get_logger().info(f'{self.get_name()} Turning to next row')
-                for goal in self.goalList:
-                    goal[x] += 1
-                self.currentGoal = self.goalList[0]
-            else:
-                self._cur_state = FSM_STATES.SCAN_SITE
-                self.get_logger().info(f'{self.get_name()} mowing the row')
-                index = self.goalList.index(self.currentGoal)
-                self.currentGoal = self.goalList[index+1]
-    
-
-    #=======================================================================================================================
 
     # HERE, WE ARE RETURNING TO THE ORIGIN (NOT THE POINT WHERE WE STARTED THE TASK, BUT WHERE WE STARTED THE PROGRAM)
     def _do_state_returning_from_task(self):
@@ -549,7 +552,7 @@ class FSM(Node):
             self._do_state_scan_site()
         
         elif self._cur_state == FSM_STATES.RETURNING_FROM_RADIO_SITE:
-            self._do_state_heading_to_task()    
+            self._do_state_returning_from_radio_Site()    
         
         elif self._cur_state == FSM_STATES.RETURNING_FROM_TASK:
             self._do_state_returning_from_task()
