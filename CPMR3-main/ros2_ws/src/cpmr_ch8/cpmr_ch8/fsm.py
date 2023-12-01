@@ -8,7 +8,8 @@ from rcl_interfaces.msg import SetParametersResult
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
-import readImageTemp 
+import json
+import os
 # ORIGINAL FSM PROCEDURE:
 # 1. At start (0,0,0) we wait 2 seconds -> FSM_STATES = AT_START
 # 2. Now begin to move to task starting position (2,2,0) -> FSM_STATES = HEADING_TO_TASK
@@ -95,7 +96,8 @@ class FSM(Node):
         self._cur_state = FSM_STATES.AT_START
         self._start_time = self.get_clock().now().nanoseconds * 1e-9
         self.goalList = [[3,3,math.pi/2],[3,6,math.pi],[3.5,6,3*(math.pi/2)],[3.5,3,math.pi]] 
-        self. currentGoal = self.goalList[0] 
+        self. currentGoal = self.goalList[0]
+        self.pathList = [] 
         self.robotSpeed=0.3
         self.currentIndex =0 
 
@@ -140,24 +142,26 @@ class FSM(Node):
         
     
     def _do_state_at_start(self):
-        readImageTemp.getPathTo(jsonFile)
-        # self.get_logger().info(f'{self.get_name()} in start state')
-        # # getting the current time
-        # # and checking to see if 2 seconds have elapsed since program launch so that we can drive to goal
-        # now = self.get_clock().now().nanoseconds * 1e-9
-        # if now > (self._start_time + 2):
-        #     # once the 2 seconds have passed, lets head to our task
-        #     self._cur_state = FSM_STATES.FIND_PATH
+        self.get_logger().info(f'{self.get_name()} in start state')
+        # getting the current time
+        # and checking to see if 2 seconds have elapsed since program launch so that we can drive to goal
+        now = self.get_clock().now().nanoseconds * 1e-9
+        if now > (self._start_time + 2):
+            # once the 2 seconds have passed, lets head to our task
+            self._cur_state = FSM_STATES.FIND_PATH
+
+    def getPathTo(self):
+        return [(3,0),(0,6),(0,0)]
+    
     def _do_state_find_path(self):
-        # getPathTo(jsonFile)
-        pass 
-        
+        with open('map.json', 'r') as file:
+            data = json.load(file)
+        # readImageTemp.process_json_data(data)
+        self.pathList = self.getPathTo(data)
+        self._cur_state = FSM_STATES.HEADING_TO_TASK
 
 
-
-        pass
     def _do_state_heading_to_task(self):
-        
         self.get_logger().info(f'{self.get_name()} heading to task {self._cur_x} {self._cur_y} {self._cur_theta}')
         if self._drive_to_goal(3, 3, math.pi/2):
             self._cur_state = FSM_STATES.PERFORMING_TASK
@@ -201,7 +205,7 @@ class FSM(Node):
     # THIS IS THE STATE WHERE WE RECOGNIZE THAT A SPECIFIC TASK IS DONE
     def _do_state_task_done(self):
         self.get_logger().info(f'{self.get_name()} task done')
-
+# The software craftsmen
     def _state_machine(self):
         if self._cur_state == FSM_STATES.AT_START:
             self._do_state_at_start()
