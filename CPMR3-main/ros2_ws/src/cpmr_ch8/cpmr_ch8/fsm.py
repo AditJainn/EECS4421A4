@@ -98,7 +98,8 @@ class FSM(Node):
         self._cur_theta = 0.0
         self._cur_state = FSM_STATES.AT_START
         self._start_time = self.get_clock().now().nanoseconds * 1e-9
-        self. currentGoal = []
+        self.currentGoal = []
+        self.goalList = [[4,4,math.pi/2],[4,6,math.pi],[4.5,6,3*(math.pi/2)],[4.5,4,math.pi]]
         self.pathList = [] 
         self.robotSpeed=0.3
         self.currentIndex =0
@@ -493,9 +494,8 @@ class FSM(Node):
         x=0
         y=1
         
-        
         if isAtGoal:
-            if self.currentGoal[x] == 3.5 and self.currentGoal[y] == 2:
+            if self.currentGoal[x] == 4.5 and self.currentGoal[y] == 4:
                 self.get_logger().info(f'{self.get_name()} completed mowing grass')
                 self._cur_state = FSM_STATES.RETURNING_FROM_TASK
             
