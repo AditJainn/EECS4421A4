@@ -392,10 +392,10 @@ class FSM(Node):
         # readImageTemp.process_json_data(data)
         # You need to convert to pixels when sending path information
         self.pathList = self.getPathTo(
-            start_x = self._cur_x * 100,
-            start_y = ( 10 - self._cur_y ) * 100,
-            finish_x = 5 * 100, 
-            finish_y = (10-5) * 100 ,
+            start_x = int(self._cur_x * 100),
+            start_y = int(( 10 - self._cur_y ) * 100),
+            finish_x = int(5 * 100), 
+            finish_y = int((10-5) * 100) ,
         )
     
         # Open the file in write mode ('w')
@@ -429,9 +429,9 @@ class FSM(Node):
                 print(f"{curPoint} not found in the list.")
             if index == (len(self.pathList)-1): # Is at Goal 
                 self.get_logger().info(f'{self.get_name()} Have reached the Radioactive site')
-                self._cur_state = FSM_STATES.RETURNING_FROM_TASK
-            else: 
                 self._cur_state = FSM_STATES.SCAN_SITE
+            else: 
+                self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
                 print(self.pathList)
                 time.sleep(5)
@@ -487,9 +487,9 @@ class FSM(Node):
         
         
         if isAtGoal:
-            if self.currentGoal[x] == 3.5 and self.currentGoal[y] == 2:
+            if self.currentGoal[x] == 5 and self.currentGoal[y] == 4:
                 self.get_logger().info(f'{self.get_name()} completed mowing grass')
-                self._cur_state = FSM_STATES.RETURNING_FROM_TASK
+                self._cur_state = FSM_STATES.RETURNING_FROM_TASK # This needs to be changed 
             
             elif self.currentGoal == self.goalList[3]:
                 self.get_logger().info(f'{self.get_name()} Turning to next row')
