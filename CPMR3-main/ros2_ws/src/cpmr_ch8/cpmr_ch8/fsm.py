@@ -99,7 +99,7 @@ class FSM(Node):
         self._cur_state = FSM_STATES.AT_START
         self._start_time = self.get_clock().now().nanoseconds * 1e-9
         self.currentGoal = []
-        self.goalList = [[4,4,math.pi/2],[4,6,math.pi],[4.5,6,3*(math.pi/2)],[4.5,4,math.pi]]
+        self.goalList = [[6,6,math.pi/2],[6,8,math.pi],[6.5,8,3*(math.pi/2)],[6.5,6,math.pi]]
         self.pathList = [] 
         self.robotSpeed=0.3
         self.currentIndex =0
@@ -248,8 +248,8 @@ class FSM(Node):
     def buildMap(self,data):
 
         for _, circle in data.items():
-            center = (int(circle["x"]) * 100, int(circle["y"]) * 100)
-            radius = int(circle["r"] * 100)  # Assuming radius is a fraction of world size
+            center = (int(circle["y"]) * 100, int(circle["x"]) * 100)
+            radius = int(circle["r"] * 150)  # Assuming radius is a fraction of world size + SLIGHT OBSTACLE RADIUS DILATION FOR RADIUS OF ROBOT
             color = (0, 0, 0)  # circle obstacles are filled black
         
             cv2.circle(self.world, center, radius, color, -1)
@@ -355,9 +355,9 @@ class FSM(Node):
         heading = math.atan2(y_diff, x_diff)
         if abs(self._cur_theta - heading) > math.pi/20: 
             if heading > self._cur_theta:
-                twist.angular.z = 0.20
+                twist.angular.z = 0.30
             else:
-               twist.angular.z = -0.20
+               twist.angular.z = -0.30
             self.get_logger().info(f'{self.get_name()} turning towards goal')
             self._publisher.publish(twist)
             return False
@@ -404,11 +404,11 @@ class FSM(Node):
         self.pathList = self.getPathTo(
             start_x = int(self._cur_x * 100),
             start_y = int(( 10 - self._cur_y ) * 100),
-            finish_x = int(4.0 * 100), 
-            finish_y = int((10-4.0) * 100) ,
+            finish_x = int(6.0 * 100), 
+            finish_y = int((10-6.0) * 100) ,
         )
-        if len(self.pathList)> 10:
-            self.pathList = self.pathList[-10:]
+        #if len(self.pathList)> 10:
+            #self.pathList = self.pathList[-10:]
         # Open the file in write mode ('w')
         with open("MapPathList.txt", 'w') as file:
             # Iterate through the list and write each element to a new line
@@ -464,7 +464,7 @@ class FSM(Node):
         y=1
         
         if isAtGoal:
-            if self.currentGoal[x] == 5 and self.currentGoal[y] == 4:
+            if self.currentGoal[x] == 7 and self.currentGoal[y] == 8:
                 self.get_logger().info(f'{self.get_name()} completed Scan of land')
                 newCurX = self.pathList[-1][0]
                 newCurY = self.pathList[-1][1]
