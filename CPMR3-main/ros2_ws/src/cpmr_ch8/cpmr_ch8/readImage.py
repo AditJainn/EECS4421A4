@@ -1,4 +1,5 @@
 import cv2
+import json
 import numpy as np
 import math
 import random
@@ -7,8 +8,10 @@ import time
 from scipy.spatial import KDTree
 
 numberOfNodes = 1500
-fileName = "NewFloorPlanEddited.jpg"
+fileName = ".json"
 map = cv2.imread(fileName)
+
+image_dimension = 1000
 
 # colour scheme
 purple = (86,70,115)
@@ -16,6 +19,9 @@ black = (38,22,27)
 darkBlue = (64,38,42)
 orange = (68,149,242)
 red = (70,78,166)
+
+pointList=[]
+
 
 
 class point:
@@ -28,6 +34,13 @@ class point:
         self.color = (127,127,0)
 
 #=======================================================================================================================================
+
+def read_json_file(filename):
+    with open(filename, 'r') as file:
+        data = json.load(file)
+    return data
+
+
 
 # USE THIS METHOD TO DETERMINE IF A GENERATED POINT IS ON AN OBSTACLE
 def point_obst_overlap(map, p):
@@ -138,7 +151,19 @@ def findClosestNodeToGraph(exploredVertexList, listOfVertix):
     return newConnection
 
 # HERE WE WILL GENERATE RANDOM POINTS AND ADD THEM TO A LIST OF POINTS
-def buildMap():
+def buildMap(data):
+    
+    world_size = (1000, 1000)
+
+    world = np.full((world_size[0], world_size[1], 3), 255, dtype=np.uint8)
+
+    for _, circle in data.items():
+        center = (int(circle["x"]) * 100, int(circle["y"]) * 100)
+        radius = int(circle["r"] * 100)  # Assuming radius is a fraction of world size
+        color = (0, 0, 0)
+    
+        cv2.circle(world, center, radius, color, -1)
+    
     # first need to define the list of generated points
     randomPoints = [(np.random.randint(10, map.shape[1]-10), np.random.randint(10, map.shape[0]-10)) for _ in range(numberOfNodes)]
     listOfVertix = []
