@@ -383,7 +383,7 @@ class FSM(Node):
     def _do_state_heading_to_task(self):
         self.get_logger().info(f'{self.get_name()} heading to task {self._cur_x} {self._cur_y} {self._cur_theta}')
         if self._drive_to_goal(3, 3, math.pi/2):
-            self._cur_state = FSM_STATES.PERFORMING_TASK
+            self._cur_state = FSM_STATES.FIND_PATH
 
     def _do_state_find_path(self):
         self.get_logger().info(f'{self.get_name()} in path finding state')
@@ -429,9 +429,9 @@ class FSM(Node):
                 print(f"{curPoint} not found in the list.")
             if index == (len(self.pathList)-1): # Is at Goal 
                 self.get_logger().info(f'{self.get_name()} Have reached the Radioactive site')
-                self._cur_state = FSM_STATES.RETURNING_FROM_TASK
-            else: 
                 self._cur_state = FSM_STATES.PERFORMING_TASK
+            else: 
+                self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
                 print(self.pathList)
                 time.sleep(5)
@@ -442,10 +442,41 @@ class FSM(Node):
                 self.currentGoal =  [newCurX,newCurY,newTheta]
                 print(f"____RESET NEW GOAL TO {newGoal}____")
         
+    def _do_state_returning_from_radio_Site(self): # not complete
+        print(self.currentGoal)
+        isAtGoal = self._drive_to_goal(*self.currentGoal)
+        self.get_logger().info(f'{self.currentGoal} PERFORMING TASK ')
+        x=0
+        y=1 
+        import time
+        
+        if isAtGoal:
+            curPoint = [self.currentGoal[0],self.currentGoal[1]]
+            index = -1 
+            try:
+                # Get the index of the target tuple
+                index = self.pathList.index(curPoint)
+                # Print the index
+                print(f"Current index: {index}")
+            except ValueError:
+                print(f"{curPoint} not found in the list.")
+            if len(self.pathList)-1 - index == 0: # Is at Goal 
+                self.get_logger().info(f'{self.get_name()} Have reached the beginging of site')
+                self._cur_state = FSM_STATES.RETURNING_FROM_TASK
+            else: 
+                self._cur_state = FSM_STATES.RETURNING_FROM_RADIO_SITE
+                #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
+                print(self.pathList)
+                time.sleep(5)
+                newCurX = self.pathList[index-1][0]
+                newCurY = self.pathList[index-1][1]
+                newTheta = self._cur_theta
+                newGoal = [newCurX,newCurY,newTheta]
+                self.currentGoal =  [newCurX,newCurY,newTheta]
+                print(f"____RESET NEW GOAL TO {newGoal}____")
         
        	 	 
     #=======================================================================================================================
-
 
     # HERE, WE ARE RETURNING TO THE ORIGIN (NOT THE POINT WHERE WE STARTED THE TASK, BUT WHERE WE STARTED THE PROGRAM)
     def _do_state_returning_from_task(self):
@@ -461,7 +492,7 @@ class FSM(Node):
     # FIND_PATH = 'Finding Path',
     # HEADING_TO_TASK = 'Heading To Task Enterance ',
     # HEADING_TO_RADIO_SITE = 'Heading To Radio Active site ',
-    
+
     # PERFORMING_TASK = 'Scanning Area',-------
     # RETURNING_FROM_RADIO_SITE= 'Returning From Radio Active site ',    
     # RETURNING_FROM_TASK = 'Heading Home',
@@ -483,7 +514,7 @@ class FSM(Node):
             self._do_state_performing_task()
         
         elif self._cur_state == FSM_STATES.RETURNING_FROM_RADIO_SITE:
-            self._do_state_heading_to_task()    
+            self._do_state_returning_from_radio_Site()    
         
         elif self._cur_state == FSM_STATES.RETURNING_FROM_TASK:
             self._do_state_returning_from_task()
