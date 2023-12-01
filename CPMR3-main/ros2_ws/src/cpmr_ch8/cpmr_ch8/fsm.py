@@ -99,18 +99,18 @@ class FSM(Node):
         self._cur_theta = 0.0
         self._cur_state = FSM_STATES.AT_START
         self._start_time = self.get_clock().now().nanoseconds * 1e-9
-        self.goalList = [[3,3,math.pi/2],[3,6,math.pi],[3.5,6,3*(math.pi/2)],[3.5,3,math.pi]] 
-        self. currentGoal = self.goalList[0]
+        self. currentGoal = []
         self.pathList = [] 
         self.robotSpeed=0.3
         self.currentIndex =0
+        self.numberOfNodes = 1500
+
+        self.fileName = "map.json"
+        self.world_size = (1000, 1000)
+        self.world = np.full((self.world_size[0], self.world_size[1], 3), 255, dtype=np.uint8)
+
     
-    numberOfNodes = 1500
-
-    fileName = "map.json"
-    world_size = (1000, 1000)
-    world = np.full((world_size[0], world_size[1], 3), 255, dtype=np.uint8)
-
+   
 
     class point:
         def __init__(self, x, y,next = None, prev = None,radius = 1):
@@ -125,7 +125,7 @@ class FSM(Node):
 
 
     # here we are going to read in the json objects
-    def read_json_file(filename):
+    def read_json_file(self,filename):
         with open(filename, 'r') as file:
             data = json.load(file)
             return data
@@ -137,7 +137,7 @@ class FSM(Node):
 
 
     # USE THIS METHOD TO DETERMINE IF A GENERATED POINT IS ON AN OBSTACLE
-    def point_obst_overlap(world, p):
+    def point_obst_overlap(self,world, p):
         def is_not_free(x, y):
             overlap = False
             if all(world[y, x] == [0, 0, 0]):
@@ -151,7 +151,7 @@ class FSM(Node):
         return False
 
     # USE THIS METHOD TO DETIRMINE IF A LINE BETWEEN TWO VALID POINTS CROSSES OVER AN OBSTACLE
-    def line_color_intersection(world, v1, v2):
+    def line_color_intersection(self,world, v1, v2):
         # we are going to check if the pixel at the specified coordinates is white
         def is_not_white(x, y):
             lineOverlap = False
@@ -193,29 +193,29 @@ class FSM(Node):
     #=======================================================================================================================================
 
     # GET THE DISTANCE BETWEEN TWO POINTS
-    def findDistace (p1, p2):
+    def findDistace (self,p1, p2):
         distance = math.sqrt((p1.x - p2.x)**2 + (p2.y - p1.y)**2)
         return distance
 
     # DRAW LINE BETWEEN POINTS
-    def drawLine(v1,v2,color =(128,0,128), thickness=2):
-        cv2.line(world, (v1.x,v1.y), (v2.x,v2.y), color, thickness)
+    def drawLine(self,v1,v2,color =(128,0,128), thickness=2):
+        cv2.line(self.world, (v1.x,v1.y), (v2.x,v2.y), color, thickness)
 
 
-    def bigBrainAlgo(exploredVertexList,listOfVertix):
+    def bigBrainAlgo(self,exploredVertexList,listOfVertix):
         newConnection = 0 # This will be two different vertexes we will be returning
         smallestDistance = float('inf')
         for exploredV in exploredVertexList:
             for unexploredVertix in listOfVertix:
-                calculateDistance = findDistace(exploredV,unexploredVertix)
-                if calculateDistance < smallestDistance and line_color_intersection(world, exploredV, unexploredVertix) == False:
+                calculateDistance = self.findDistace(exploredV,unexploredVertix)
+                if calculateDistance < smallestDistance and self.line_color_intersection(self.world, exploredV, unexploredVertix) == False:
                     smallestDistance = calculateDistance
                     newConnection = (exploredV,unexploredVertix)
 
         return newConnection
 
     # FIND THE CLOSEST NODE TO A GRAPH
-    def findClosestNodeToGraph(exploredVertexList, listOfVertix):
+    def findClosestNodeToGraph(self,exploredVertexList, listOfVertix):
         # Convert vertex points to a list of tuples
         unexploredPoints = [(v.x, v.y) for v in listOfVertix]
 
@@ -230,7 +230,7 @@ class FSM(Node):
             distance, index = tree.query((exploredV.x, exploredV.y))
 
             #if line_color_intersection(map, exploredV, listOfVertix[index]):
-            if distance < smallestDistance and line_color_intersection(world, exploredV, listOfVertix[index]) == False:
+            if distance < smallestDistance and self.line_color_intersection(self.world, exploredV, listOfVertix[index]) == False:
 
                 smallestDistance = distance
                 newConnection = (exploredV, listOfVertix[index])
@@ -241,40 +241,40 @@ class FSM(Node):
             if distance == 0:
                 break
         if newConnection == None:
-            newConnection = bigBrainAlgo(exploredVertexList,listOfVertix)
+            newConnection = self.bigBrainAlgo(exploredVertexList,listOfVertix)
         return newConnection
 
     # HERE WE WILL GENERATE RANDOM POINTS AND ADD THEM TO A LIST OF POINTS
-    def buildMap(data):
+    def buildMap(self,data):
 
         for _, circle in data.items():
             center = (int(circle["x"]) * 100, int(circle["y"]) * 100)
             radius = int(circle["r"] * 100)  # Assuming radius is a fraction of world size
             color = (0, 0, 0)  # circle obstacles are filled black
         
-            cv2.circle(world, center, radius, color, -1)
+            cv2.circle(self.world, center, radius, color, -1)
 
         # first need to define the list of generated points
-        randomPoints = [(np.random.randint(10, world.shape[1]-10), np.random.randint(10, world.shape[0]-10)) for _ in range(numberOfNodes)]
+        randomPoints = [(np.random.randint(10, self.world.shape[1]-10), np.random.randint(10, self.world.shape[0]-10)) for _ in range(self.numberOfNodes)]
         listOfVertix = []
         # now, populate the map
-        for i in range(0,numberOfNodes):
-            v = point(x = randomPoints[i][0], y = randomPoints[i][1])
+        for i in range(0,self.numberOfNodes):
+            v = self.point(x = randomPoints[i][0], y = randomPoints[i][1])
             # if a point is generated on an obstacle, change its colour and do NOT add it to new list
-            if point_obst_overlap(world,v):
+            if self.point_obst_overlap(self.world,v):
                 v.color = (0, 255, 255) 
             else: 
                 listOfVertix.append(v)
             # print(v.x)
-            cv2.circle(world, (v.x,v.y), v.radius, v.color, thickness=-1)
+            cv2.circle(self.world, (v.x,v.y), v.radius, v.color, thickness=-1)
 
         return listOfVertix
 
     #=======================================================================================================================================
-    def getPathTo(start_x = 10, start_y = 10, finish_x = 975, finish_y = 975):
+    def getPathTo(self,start_x = 10, start_y = 10, finish_x = 200, finish_y = 200):
         
         # get the list of points
-        listOfVertix = buildMap(data=read_json_file(fileName))
+        listOfVertix = self.buildMap(data=self.read_json_file(self.fileName))
 
         # this is essentially our RRT list of nodes 
         exploredVertexList = []
@@ -282,16 +282,16 @@ class FSM(Node):
         # RRT list to return to drive_to_goal
         rrt = []
         # starting index will be the first index of the list (its always random since the list is always randomly generated)
-        startVertex = point(start_x, start_y)
+        startVertex = self.point(start_x, start_y)
         
         # INSERT A POINT AT A RANDOM SPOT IN THE LIST (this will be replaced by the robot odometry position in gazebo)
         random_index = random.randint(0, len(listOfVertix))
 
-        finishPoint = point(finish_x, finish_y)
+        finishPoint = self.point(finish_x, finish_y)
         finishPoint.color=(255, 255, 0)
         
-        cv2.circle(world, (startVertex.x,startVertex.y), 6, (0,255,0), thickness=-1)
-        cv2.circle(world, (finishPoint.x,finishPoint.y), 6, (255,255,0), thickness=-1)
+        cv2.circle(self.world, (startVertex.x,startVertex.y), 6, (0,255,0), thickness=-1)
+        cv2.circle(self.world, (finishPoint.x,finishPoint.y), 6, (255,255,0), thickness=-1)
 
         listOfVertix.insert(random_index, finishPoint)
         exploredVertexList.append(startVertex)
@@ -299,12 +299,12 @@ class FSM(Node):
         # iterate through the list of points (vertices) until we reach the goal vertex
         while(len(listOfVertix) > 0):
             # graphNode is the node we are searching FROM and newNode is the node we are searching FOR
-            graphNode, newNode = findClosestNodeToGraph(exploredVertexList, listOfVertix)
+            graphNode, newNode = self.findClosestNodeToGraph(exploredVertexList, listOfVertix)
 
             graphNode.next = newNode
             newNode.prev = graphNode
             # if line_color_intersection(map, graphNode, newNode) == False:
-            drawLine(graphNode, newNode) 
+            self.drawLine(graphNode, newNode) 
             exploredVertexList.append(newNode)
             listOfVertix.remove(newNode)
             # random.shuffle(listOfVertix)
@@ -313,7 +313,7 @@ class FSM(Node):
             print('ELEMENTS IN LIST OF VERTIX: ', len(listOfVertix))
             print('GRAPH NODE: ', graphNode.x, graphNode.y)
             print('NEW NODE: ', newNode.x, newNode.y)
-            print('*******NODE ADDED TO RRT*******')
+            print('********************************NODE ADDED TO RRT*********************')
 
             # check if we have reached the goal            
             if newNode.x == finishPoint.x and newNode.y == finishPoint.y:
@@ -324,9 +324,9 @@ class FSM(Node):
         while(newNode.prev != None):
             rrt.append((newNode.x/100.0,newNode.y/100.0))
             print(f"Location: {newNode.x} , {newNode.y}")
-            drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
+            self.drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
             newNode = newNode.prev
-        cv2.imwrite("createdMap",world)
+        cv2.imwrite("createdMap.jpg",self.world)
         return rrt 
 
     def _drive_to_goal(self, goal_x, goal_y, goal_theta):
@@ -382,9 +382,10 @@ class FSM(Node):
     def _do_state_find_path(self):
         self.get_logger().info(f'{self.get_name()} in path finding state')
         import time
-        time.sleep(10)
         # readImageTemp.process_json_data(data)
         self.pathList = self.getPathTo()
+        # time.sleep(10)
+        self.currentGoal = [3,3,(math.pi/2)]
         self._cur_state = FSM_STATES.HEADING_TO_TASK
 
 
@@ -396,27 +397,34 @@ class FSM(Node):
     #=======================================================================================================================
     # HERE WE ARE HEADING TO GOAL (I.E., HEADING TO THE STARTING POSITION WHERE WE WILL BEGIN TO CUT THE GRASS)
     def _do_state_performing_task(self):
-        isAtGoal = self._drive_to_goal(*self.currentGoal)
+        isAtGoal = self._drive_to_goal(self.currentGoal)
         # self.get_logger().info(f'{self.currentGoal} \n')
         x=0
-        y=1
-        
+        y=1 
+        import time
         
         if isAtGoal:
-            if self.currentGoal[x] == 3.5 and self.currentGoal[y] == 2:
-                self.get_logger().info(f'{self.get_name()} completed mowing grass')
+            curTuple = (self.currentGoal[0],self.currentGoal[1])
+            index = -1 
+            try:
+                # Get the index of the target tuple
+                index = self.pathList.index(curTuple)
+                # Print the index
+                print(f"Current index: {index}")
+            except ValueError:
+                print(f"{curTuple} not found in the list.")
+
+            if index == (len(self.pathList)-1): # Is at Goal 
+                self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
                 self._cur_state = FSM_STATES.RETURNING_FROM_TASK
-            
-            elif self.currentGoal == self.goalList[3]:
-                self.get_logger().info(f'{self.get_name()} Turning to next row')
-                for goal in self.goalList:
-                    goal[x] += 1
-                self.currentGoal = self.goalList[0]
-            else:
+            else: 
                 self._cur_state = FSM_STATES.PERFORMING_TASK
-                self.get_logger().info(f'{self.get_name()} mowing the row')
-                index = self.goalList.index(self.currentGoal)
-                self.currentGoal = self.goalList[index+1] 
+                #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
+                newGoal = self.pathList[index+1]
+                newGoal = newGoal.append(self._cur_theta)
+                print(newGoal)
+                time.sleep(5)
+                self.currentGoal =  newGoal
         
         
        	 	 
