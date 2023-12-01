@@ -1,27 +1,15 @@
 import cv2
-import json
 import numpy as np
 import math
 import random
-import subprocess
-import time
 from scipy.spatial import KDTree
+import json
 
 numberOfNodes = 1500
-fileName = ".json"
-map = cv2.imread(fileName)
 
-image_dimension = 1000
-
-# colour scheme
-purple = (86,70,115)
-black = (38,22,27)
-darkBlue = (64,38,42)
-orange = (68,149,242)
-red = (70,78,166)
-
-pointList=[]
-
+fileName = "map.json"
+world_size = (1000, 1000)
+world = np.full((world_size[0], world_size[1], 3), 255, dtype=np.uint8)
 
 
 class point:
@@ -35,18 +23,24 @@ class point:
 
 #=======================================================================================================================================
 
+
+# here we are going to read in the json objects
 def read_json_file(filename):
     with open(filename, 'r') as file:
         data = json.load(file)
-    return data
+        return data
+
+
+
+white_image = np.ones((1000, 1000, 3), dtype=np.uint8) * 255
 
 
 
 # USE THIS METHOD TO DETERMINE IF A GENERATED POINT IS ON AN OBSTACLE
-def point_obst_overlap(map, p):
+def point_obst_overlap(world, p):
     def is_not_free(x, y):
         overlap = False
-        if all(map[y, x] == [0, 0, 0]):
+        if all(world[y, x] == [0, 0, 0]):
             overlap = True
         return overlap
 
@@ -57,11 +51,11 @@ def point_obst_overlap(map, p):
     return False
 
 # USE THIS METHOD TO DETIRMINE IF A LINE BETWEEN TWO VALID POINTS CROSSES OVER AN OBSTACLE
-def line_color_intersection(map, v1, v2):
+def line_color_intersection(world, v1, v2):
     # we are going to check if the pixel at the specified coordinates is white
     def is_not_white(x, y):
         lineOverlap = False
-        if all(map[y, x] == [0, 0, 0]):
+        if all(world[y, x] == [0, 0, 0]):
             lineOverlap = True
             print('LINE COLOR INTERSECTION HAS OCCURED')
         return lineOverlap 
@@ -105,7 +99,7 @@ def findDistace (p1, p2):
 
 # DRAW LINE BETWEEN POINTS
 def drawLine(v1,v2,color =(128,0,128), thickness=2):
-    cv2.line(map, (v1.x,v1.y), (v2.x,v2.y), color, thickness)
+    cv2.line(world, (v1.x,v1.y), (v2.x,v2.y), color, thickness)
 
 
 def bigBrainAlgo(exploredVertexList,listOfVertix):
@@ -114,7 +108,7 @@ def bigBrainAlgo(exploredVertexList,listOfVertix):
     for exploredV in exploredVertexList:
         for unexploredVertix in listOfVertix:
             calculateDistance = findDistace(exploredV,unexploredVertix)
-            if calculateDistance < smallestDistance and line_color_intersection(map, exploredV, unexploredVertix) == False:
+            if calculateDistance < smallestDistance and line_color_intersection(world, exploredV, unexploredVertix) == False:
                 smallestDistance = calculateDistance
                 newConnection = (exploredV,unexploredVertix)
 
@@ -136,7 +130,7 @@ def findClosestNodeToGraph(exploredVertexList, listOfVertix):
         distance, index = tree.query((exploredV.x, exploredV.y))
 
         #if line_color_intersection(map, exploredV, listOfVertix[index]):
-        if distance < smallestDistance and line_color_intersection(map, exploredV, listOfVertix[index]) == False:
+        if distance < smallestDistance and line_color_intersection(world, exploredV, listOfVertix[index]) == False:
 
             smallestDistance = distance
             newConnection = (exploredV, listOfVertix[index])
@@ -152,40 +146,35 @@ def findClosestNodeToGraph(exploredVertexList, listOfVertix):
 
 # HERE WE WILL GENERATE RANDOM POINTS AND ADD THEM TO A LIST OF POINTS
 def buildMap(data):
-    
-    world_size = (1000, 1000)
-
-    world = np.full((world_size[0], world_size[1], 3), 255, dtype=np.uint8)
 
     for _, circle in data.items():
         center = (int(circle["x"]) * 100, int(circle["y"]) * 100)
         radius = int(circle["r"] * 100)  # Assuming radius is a fraction of world size
-        color = (0, 0, 0)
+        color = (0, 0, 0)  # circle obstacles are filled black
     
         cv2.circle(world, center, radius, color, -1)
-    
+
     # first need to define the list of generated points
-    randomPoints = [(np.random.randint(10, map.shape[1]-10), np.random.randint(10, map.shape[0]-10)) for _ in range(numberOfNodes)]
+    randomPoints = [(np.random.randint(10, world.shape[1]-10), np.random.randint(10, world.shape[0]-10)) for _ in range(numberOfNodes)]
     listOfVertix = []
     # now, populate the map
     for i in range(0,numberOfNodes):
         v = point(x = randomPoints[i][0], y = randomPoints[i][1])
         # if a point is generated on an obstacle, change its colour and do NOT add it to new list
-        if point_obst_overlap(map,v):
+        if point_obst_overlap(world,v):
             v.color = (0, 255, 255) 
         else: 
             listOfVertix.append(v)
         # print(v.x)
-        cv2.circle(map, (v.x,v.y), v.radius, v.color, thickness=-1)
+        cv2.circle(world, (v.x,v.y), v.radius, v.color, thickness=-1)
 
-    cv2.imwrite("_PrelineMap"+ fileName ,map)
     return listOfVertix
 
 #=======================================================================================================================================
-def mainRead(start_x = 250, start_y = 250, finish_x = 15, finish_y = 15):
+def getPathTo(start_x = 10, start_y = 10, finish_x = 975, finish_y = 975):
     
     # get the list of points
-    listOfVertix = buildMap()
+    listOfVertix = buildMap(data=read_json_file(fileName))
 
     # this is essentially our RRT list of nodes 
     exploredVertexList = []
@@ -201,15 +190,16 @@ def mainRead(start_x = 250, start_y = 250, finish_x = 15, finish_y = 15):
     finishPoint = point(finish_x, finish_y)
     finishPoint.color=(255, 255, 0)
     
-    cv2.circle(map, (startVertex.x,startVertex.y), 6, (0,255,0), thickness=-1)
-    cv2.circle(map, (finishPoint.x,finishPoint.y), 6, (255,255,0), thickness=-1)
+    cv2.circle(world, (startVertex.x,startVertex.y), 6, (0,255,0), thickness=-1)
+    cv2.circle(world, (finishPoint.x,finishPoint.y), 6, (255,255,0), thickness=-1)
 
     listOfVertix.insert(random_index, finishPoint)
     exploredVertexList.append(startVertex)
 
     # iterate through the list of points (vertices) until we reach the goal vertex
     while(len(listOfVertix) > 0):
-
+        cv2.imshow('chonker', world)
+        cv2.waitKey(1)
         # graphNode is the node we are searching FROM and newNode is the node we are searching FOR
         graphNode, newNode = findClosestNodeToGraph(exploredVertexList, listOfVertix)
 
@@ -234,54 +224,25 @@ def mainRead(start_x = 250, start_y = 250, finish_x = 15, finish_y = 15):
         
         print('\n')  
     while(newNode.prev != None):
-        pointInX = (newNode.x/10.0)
-        pointInY = 63.5- (newNode.y/10.0)
-        rrt.append((pointInX,pointInY))
+        rrt.append((newNode.x/100.0,newNode.y/100.0))
         print(f"Location: {newNode.x} , {newNode.y}")
         drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
         newNode = newNode.prev
+    
+    cv2.imshow('chonker', world)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    cv2.imwrite("_output_image"+fileName,map)
-    # cv2.imshow('colour-based', map)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
-    # for r in rrt:
-    #     print(r)
+    #with open('waypoints.txt', 'w') as file:
+    # Loop - replace with your actual loop conditions
+    #    for i in rrt:
+            # Write to the file in each iteration
+    #        file.write(i, '\n')
 
     return rrt
 
 #=======================================================================================================================================
 
 # call maain
+getPathTo()
 
-
-
-#=======================================================================================================================================
-
-
-def movingInRos(listOfNodes):
-
-    command = "" 
-    listOfNodes.reverse()
-    
-    with open('wayPoints.txt', 'w') as file:
-        # Write content to the file
-        for r in listOfNodes:
-            file.write(f'{r}\n')
-
-    print("\n\n\nWORKING ON MOVEMENT \n\n\n")
-    for i in listOfNodes:
-        print(f"{i[0]}, {i[1]}")
-        command = f"ros2 param set /drive_to_goal newGoal \"{i[0]} & {i[1]}\"" 
-        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        print("Errors:", result.stderr)
-        # Print the return code
-        print("Return code:", result.returncode)
-        print("Output:", result.stdout)
-        time.sleep(1.0)
-# def parseFiles(): 
-#     pass
-listOfNodes = mainRead(start_x=150,start_y=500,finish_x=600,finish_y=350)
-x = input("____________________\n PRESS TO CONINTUE \n________________\n")
-movingInRos(listOfNodes)
