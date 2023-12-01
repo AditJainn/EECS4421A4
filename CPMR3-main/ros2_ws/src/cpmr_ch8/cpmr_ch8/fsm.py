@@ -76,12 +76,11 @@ def euler_from_quaternion(quaternion):
 class FSM_STATES(Enum):
     AT_START = 'AT STart',
     FIND_PATH = 'Finding Path',
-    HEADING_TO_TASK = 'Heading to Task',
-    # need to add a task state(s)
-    #==============================================
-    PERFORMING_TASK = 'Cutting the grass',
-    #===============================================
-    RETURNING_FROM_TASK = 'Returning from Task',
+    HEADING_TO_TASK = 'Heading To Task Enterance ',
+    HEADING_TO_RADIO_SITE = 'Heading To Radioactive site ',
+    SCAN_SITE = 'Scanning Area',
+    RETURNING_FROM_RADIO_SITE= 'Returning From Radioactive site ',    
+    RETURNING_FROM_TASK = 'Heading Home',
     TASK_DONE = 'Task Done'
 
 class FSM(Node):
@@ -271,7 +270,7 @@ class FSM(Node):
         return listOfVertix
 
     #=======================================================================================================================================
-    def getPathTo(self,start_x = 10, start_y = 10, finish_x = 200, finish_y = 200):
+    def getPathTo(self,start_x = 30, start_y = 700, finish_x = 130, finish_y = 850):
         
         # get the list of points
         listOfVertix = self.buildMap(data=self.read_json_file(self.fileName))
@@ -284,15 +283,16 @@ class FSM(Node):
         # starting index will be the first index of the list (its always random since the list is always randomly generated)
         startVertex = self.point(start_x, start_y)
         
-        # INSERT A POINT AT A RANDOM SPOT IN THE LIST (this will be replaced by the robot odometry position in gazebo)
-        random_index = random.randint(0, len(listOfVertix))
-
         finishPoint = self.point(finish_x, finish_y)
         finishPoint.color=(255, 255, 0)
-        
+        print(f"{startVertex.x,startVertex.y}")
+        print(f"{finishPoint.x,finishPoint.y}")
+
         cv2.circle(self.world, (startVertex.x,startVertex.y), 6, (0,255,0), thickness=-1)
         cv2.circle(self.world, (finishPoint.x,finishPoint.y), 6, (255,255,0), thickness=-1)
 
+        # INSERT A POINT AT A RANDOM SPOT IN THE LIST (this will be replaced by the robot odometry position in gazebo)
+        random_index = random.randint(0, len(listOfVertix))
         listOfVertix.insert(random_index, finishPoint)
         exploredVertexList.append(startVertex)
 
@@ -322,7 +322,9 @@ class FSM(Node):
             
             print('\n')  
         while(newNode.prev != None):
-            rrt.append((newNode.x/100.0,newNode.y/100.0))
+            pointX = round(newNode.x/100.0,2)
+            pointY = round(10 - newNode.y/100.0,2)
+            rrt.append([pointX,pointY])
             print(f"Location: {newNode.x} , {newNode.y}")
             self.drawLine(newNode, newNode.prev,(0, 0, 255), 4) 
             newNode = newNode.prev
@@ -368,7 +370,6 @@ class FSM(Node):
         self.get_logger().info(f'{self.get_name()} at goal pose')
         return True
         
-    
     def _do_state_at_start(self):
         self.get_logger().info(f'{self.get_name()} in start state')
         # getting the current time
@@ -376,58 +377,100 @@ class FSM(Node):
         now = self.get_clock().now().nanoseconds * 1e-9
         if now > (self._start_time + 2):
             # once the 2 seconds have passed, lets head to our task
-            self._cur_state = FSM_STATES.FIND_PATH
+            self._cur_state = FSM_STATES.HEADING_TO_TASK
         # self.get_logger().info(f'FINISHED START STATE in start state')
-    import time
-    def _do_state_find_path(self):
-        self.get_logger().info(f'{self.get_name()} in path finding state')
-        import time
-        # readImageTemp.process_json_data(data)
-        self.pathList = self.getPathTo()
-        # time.sleep(10)
-        self.currentGoal = [3,3,(math.pi/2)]
-        self._cur_state = FSM_STATES.HEADING_TO_TASK
-
 
     def _do_state_heading_to_task(self):
         self.get_logger().info(f'{self.get_name()} heading to task {self._cur_x} {self._cur_y} {self._cur_theta}')
         if self._drive_to_goal(3, 3, math.pi/2):
-            self._cur_state = FSM_STATES.PERFORMING_TASK
+            self._cur_state = FSM_STATES.SCAN_SITE
+
+    def _do_state_find_path(self):
+        self.get_logger().info(f'{self.get_name()} in path finding state')
+        self.get_logger().info(f'{self.get_name()} Current location is {self._cur_x, self._cur_y} ')
+
+        # readImageTemp.process_json_data(data)
+        # You need to convert to pixels when sending path information
+        self.pathList = self.getPathTo(
+            start_x = self._cur_x * 100,
+            start_y = ( 10 - self._cur_y ) * 100,
+            finish_x = 5 * 100, 
+            finish_y = (10-5) * 100 ,
+        )
+    
+        # Open the file in write mode ('w')
+        with open("MapPathList.txt", 'w') as file:
+            # Iterate through the list and write each element to a new line
+            for item in self.pathList:
+                file.write(f"{item}\n")
+
+        self.currentGoal = [self.pathList[0][0],self.pathList[0][1],(math.pi/2)]
+        self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
 
     #=======================================================================================================================
     # HERE WE ARE HEADING TO GOAL (I.E., HEADING TO THE STARTING POSITION WHERE WE WILL BEGIN TO CUT THE GRASS)
-    def _do_state_performing_task(self):
-        isAtGoal = self._drive_to_goal(self.currentGoal)
-        # self.get_logger().info(f'{self.currentGoal} \n')
+    def _do_state_heading_radio_Site(self):
+        print(self.currentGoal)
+        isAtGoal = self._drive_to_goal(*self.currentGoal)
+        
         x=0
         y=1 
         import time
         
         if isAtGoal:
-            curTuple = (self.currentGoal[0],self.currentGoal[1])
+            curPoint = [self.currentGoal[0],self.currentGoal[1]]
             index = -1 
             try:
                 # Get the index of the target tuple
-                index = self.pathList.index(curTuple)
+                index = self.pathList.index(curPoint)
                 # Print the index
                 print(f"Current index: {index}")
             except ValueError:
-                print(f"{curTuple} not found in the list.")
-
+                print(f"{curPoint} not found in the list.")
             if index == (len(self.pathList)-1): # Is at Goal 
-                self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
+                self.get_logger().info(f'{self.get_name()} Have reached the Radioactive site')
                 self._cur_state = FSM_STATES.RETURNING_FROM_TASK
             else: 
-                self._cur_state = FSM_STATES.PERFORMING_TASK
+                self._cur_state = FSM_STATES.SCAN_SITE
                 #  self.get_logger().info(f'{self.get_name()} completed Scan of radioactive area')
-                newGoal = self.pathList[index+1]
-                newGoal = newGoal.append(self._cur_theta)
-                print(newGoal)
+                print(self.pathList)
                 time.sleep(5)
-                self.currentGoal =  newGoal
+                newCurX = self.pathList[index+1][0]
+                newCurY = self.pathList[index+1][1]
+                newTheta = self._cur_theta
+                newGoal = [newCurX,newCurY,newTheta]
+                self.currentGoal =  [newCurX,newCurY,newTheta]
+                print(f"____RESET NEW GOAL TO {newGoal}____")
         
         
        	 	 
+    #=======================================================================================================================
+    
+    # HERE WE ARE SCANNING THE RADIOACTIVE AREA FOLLOWING THE LAWNMOWER PATTERN
+    def _do_state_scan_site(self):
+        isAtGoal = self._drive_to_goal(*self.currentGoal)
+            # self.get_logger().info(f'{self.currentGoal} \n')
+        x=0
+        y=1
+        
+        
+        if isAtGoal:
+            if self.currentGoal[x] == 3.5 and self.currentGoal[y] == 2:
+                self.get_logger().info(f'{self.get_name()} completed mowing grass')
+                self._cur_state = FSM_STATES.RETURNING_FROM_TASK
+            
+            elif self.currentGoal == self.goalList[3]:
+                self.get_logger().info(f'{self.get_name()} Turning to next row')
+                for goal in self.goalList:
+                    goal[x] += 1
+                self.currentGoal = self.goalList[0]
+            else:
+                self._cur_state = FSM_STATES.SCAN_SITE
+                self.get_logger().info(f'{self.get_name()} mowing the row')
+                index = self.goalList.index(self.currentGoal)
+                self.currentGoal = self.goalList[index+1]
+    
+
     #=======================================================================================================================
 
 
@@ -440,20 +483,41 @@ class FSM(Node):
     # THIS IS THE STATE WHERE WE RECOGNIZE THAT A SPECIFIC TASK IS DONE
     def _do_state_task_done(self):
         self.get_logger().info(f'{self.get_name()} task done')
-# The software craftsmen
+
+    # AT_START = 'AT STart',
+    # FIND_PATH = 'Finding Path',
+    # HEADING_TO_TASK = 'Heading To Task Enterance ',
+    # HEADING_TO_RADIO_SITE = 'Heading To Radio Active site ',
+    
+    # PERFORMING_TASK = 'Scanning Area',-------
+    # RETURNING_FROM_RADIO_SITE= 'Returning From Radio Active site ',    
+    # RETURNING_FROM_TASK = 'Heading Home',
+    # TASK_DONE = 'Task Done'
     def _state_machine(self):
         if self._cur_state == FSM_STATES.AT_START:
             self._do_state_at_start()
-        if self._cur_state == FSM_STATES.FIND_PATH:
-            self._do_state_find_path()
+        
         elif self._cur_state == FSM_STATES.HEADING_TO_TASK:
             self._do_state_heading_to_task()
-        elif self._cur_state == FSM_STATES.PERFORMING_TASK:
-            self._do_state_performing_task()
+
+        elif self._cur_state == FSM_STATES.FIND_PATH:
+            self._do_state_find_path()
+
+        elif self._cur_state == FSM_STATES.HEADING_TO_RADIO_SITE:
+            self._do_state_heading_radio_Site()
+
+        elif self._cur_state == FSM_STATES.SCAN_SITE:
+            self._do_state_scan_site()
+        
+        elif self._cur_state == FSM_STATES.RETURNING_FROM_RADIO_SITE:
+            self._do_state_heading_to_task()    
+        
         elif self._cur_state == FSM_STATES.RETURNING_FROM_TASK:
             self._do_state_returning_from_task()
+        
         elif self._cur_state == FSM_STATES.TASK_DONE:
             self._do_state_task_done()
+        
         else:
             self.get_logger().info(f'{self.get_name()} bad state {self._cur_state}')
 
