@@ -8,7 +8,7 @@ from rcl_interfaces.msg import SetParametersResult
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist, Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
-
+import readImageTemp 
 # ORIGINAL FSM PROCEDURE:
 # 1. At start (0,0,0) we wait 2 seconds -> FSM_STATES = AT_START
 # 2. Now begin to move to task starting position (2,2,0) -> FSM_STATES = HEADING_TO_TASK
@@ -138,20 +138,22 @@ class FSM(Node):
         self.get_logger().info(f'{self.get_name()} at goal pose')
         return True
         
-        
-
+    
     def _do_state_at_start(self):
-        self.get_logger().info(f'{self.get_name()} in start state')
-        # getting the current time
-        # and checking to see if 2 seconds have elapsed since program launch so that we can drive to goal
-        now = self.get_clock().now().nanoseconds * 1e-9
-        if now > (self._start_time + 2):
-            # once the 2 seconds have passed, lets head to our task
-            self._cur_state = FSM_STATES.FIND_PATH
+        readImageTemp.getPathTo(jsonFile)
+        # self.get_logger().info(f'{self.get_name()} in start state')
+        # # getting the current time
+        # # and checking to see if 2 seconds have elapsed since program launch so that we can drive to goal
+        # now = self.get_clock().now().nanoseconds * 1e-9
+        # if now > (self._start_time + 2):
+        #     # once the 2 seconds have passed, lets head to our task
+        #     self._cur_state = FSM_STATES.FIND_PATH
     def _do_state_find_path(self):
-        listOfPoitns = []
-
+        # getPathTo(jsonFile)
+        pass 
         
+
+
 
         pass
     def _do_state_heading_to_task(self):
