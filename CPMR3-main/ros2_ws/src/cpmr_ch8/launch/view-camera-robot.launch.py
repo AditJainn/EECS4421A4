@@ -31,10 +31,10 @@ def generate_launch_description():
              name='urdf_spawner',
              output='screen',
              arguments=["-topic", "/robot_description",  "-entity",  "camera_robot"]),
-     #    Node(
-     #         package='cpmr_ch8',
-     #         executable='view_camera',
-     #         name='view_camera',
-     #         output='screen'),
+        Node(
+             package='cpmr_ch8',
+             executable='view_camera',
+             name='view_camera',
+             output='screen'),
     ])
 
