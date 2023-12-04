@@ -248,10 +248,9 @@ class FSM(Node):
     def buildMap(self,data):
 
         for _, circle in data.items():
-            center = (int(circle["y"]) * 100, int(circle["x"]) * 100)
-            radius = int(circle["r"] * 150)  # Assuming radius is a fraction of world size + SLIGHT OBSTACLE RADIUS DILATION FOR RADIUS OF ROBOT
+            center = (int(circle["x"]) * 100, ((10 - int(circle["y"])) * 100))
+            radius = int(circle["r"] * 110) +50  # Assuming radius is a fraction of world size + SLIGHT OBSTACLE RADIUS DILATION FOR RADIUS OF ROBOT
             color = (0, 0, 0)  # circle obstacles are filled black
-        
             cv2.circle(self.world, center, radius, color, -1)
 
         # first need to define the list of generated points
@@ -353,17 +352,17 @@ class FSM(Node):
 
         # turn to the goal
         heading = math.atan2(y_diff, x_diff)
-        if abs(self._cur_theta - heading) > math.pi/20: 
-            if heading > self._cur_theta:
-                twist.angular.z = 0.30
+        if abs(self._cur_theta - heading) > math.pi/20 and dist > 0.03: 
+            if heading > self._cur_theta:	
+                twist.angular.z = 0.1
             else:
-               twist.angular.z = -0.30
+               twist.angular.z = -0.10
             self.get_logger().info(f'{self.get_name()} turning towards goal')
             self._publisher.publish(twist)
             return False
 
         # since we are now pointing to the right direction, go there
-        if dist > 0.1*0.1:
+        if dist > 0.03:
             twist.linear.x = self.robotSpeed 
             self._publisher.publish(twist)
             self.get_logger().info(f'{self.get_name()} driving to goal')
