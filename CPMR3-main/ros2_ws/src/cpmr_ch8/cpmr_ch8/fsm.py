@@ -374,13 +374,13 @@ class FSM(Node):
                 twist.angular.z = 0.005
             else:
                twist.angular.z = -0.005
-            self.get_logger().info(f'{self.get_name()} turning to goal direction')
+            self.get_logger().info(f'turning to goal direction')
             self._publisher.publish(twist)
-        self.get_logger().info(f'{self.get_name()} at goal pose')
+        self.get_logger().info(f'at goal pose')
         return True
         
     def _do_state_at_start(self):
-        self.get_logger().info(f'{self.get_name()} in start state')
+        self.get_logger().info(f'{self.get_name()} AT_START')
         # getting the current time
         # and checking to see if 2 seconds have elapsed since program launch so that we can drive to goal
         now = self.get_clock().now().nanoseconds * 1e-9
@@ -390,12 +390,13 @@ class FSM(Node):
         # self.get_logger().info(f'FINISHED START STATE in start state')
 
     def _do_state_heading_to_task(self):
+        self.get_logger().info(f'{self.get_name()} HEADING_TO_TASK')
         self.get_logger().info(f'{self.get_name()} heading to task {self._cur_x} {self._cur_y} {self._cur_theta}')
         if self._drive_to_goal(3, 3, math.pi/2):
             self._cur_state = FSM_STATES.FIND_PATH
 
     def _do_state_find_path(self):
-        self.get_logger().info(f'{self.get_name()} in path finding state')
+        self.get_logger().info(f'{self.get_name()} FIND_PATH')
         self.get_logger().info(f'{self.get_name()} Current location is {self._cur_x, self._cur_y} ')
 
         # readImageTemp.process_json_data(data)
@@ -422,7 +423,8 @@ class FSM(Node):
     def _do_state_heading_radio_Site(self):
         print(self.currentGoal)
         isAtGoal = self._drive_to_goal(*self.currentGoal)
-        self.get_logger().info(f'{self.currentGoal} PERFORMING TASK ')
+        self.get_logger().info(f'{self.get_name()} HEADING_TO_RADIO_SITE')
+        self.get_logger().info(f'current goal: {self.currentGoal}')
         x=0
         y=1 
         import time
@@ -439,7 +441,7 @@ class FSM(Node):
                 print(f"{curPoint} not found in the list.")
             if index == (len(self.pathList)-1): # Is at Goal 
                 self.get_logger().info(f'{self.get_name()} Have reached the Radioactive site')
-                self.currentGoal = [4,4,math.pi/2]
+                self.currentGoal = [6,6,math.pi/2]
                 self._cur_state = FSM_STATES.SCAN_SITE
             else: 
                 self._cur_state = FSM_STATES.HEADING_TO_RADIO_SITE
@@ -456,6 +458,7 @@ class FSM(Node):
     
     # HERE WE ARE SCANNING THE RADIOACTIVE AREA FOLLOWING THE LAWNMOWER PATTERN
     def _do_state_scan_site(self):
+        self.get_logger().info(f'{self.get_name()} SCAN_SITE')
         print(self.currentGoal)
         isAtGoal = self._drive_to_goal(*self.currentGoal)
             # self.get_logger().info(f'{self.currentGoal} \n')
@@ -464,20 +467,20 @@ class FSM(Node):
         
         if isAtGoal:
             if self.currentGoal[x] == 7 and self.currentGoal[y] == 8:
-                self.get_logger().info(f'{self.get_name()} completed Scan of land')
+                self.get_logger().info(f'completed Scan of land')
                 newCurX = self.pathList[-1][0]
                 newCurY = self.pathList[-1][1]
                 newTheta = self._cur_theta
                 self.currentGoal= [newCurX,newCurY,newTheta]
                 self._cur_state = FSM_STATES.RETURNING_FROM_RADIO_SITE  
             elif self.currentGoal == self.goalList[3]:
-                self.get_logger().info(f'{self.get_name()} Turning to next row')
+                self.get_logger().info(f'Turning to next row')
                 for goal in self.goalList:
                     goal[x] += 1
                 self.currentGoal = self.goalList[0]
             else:
                 self._cur_state = FSM_STATES.SCAN_SITE
-                self.get_logger().info(f'{self.get_name()} mowing the row')
+                self.get_logger().info(f'mowing the row')
                 index = self.goalList.index(self.currentGoal)
                 self.currentGoal = self.goalList[index+1]
     #=======================================================================================================================
@@ -485,7 +488,7 @@ class FSM(Node):
     def _do_state_returning_from_radio_Site(self): # not complete
         print(self.currentGoal)
         isAtGoal = self._drive_to_goal(*self.currentGoal)
-        self.get_logger().info(f'{self.currentGoal} PERFORMING TASK ')
+        self.get_logger().info(f'{self.get_name()}: RETURNING_FROM_RADIO_SITE')
         x=0
         y=1 
         import time
@@ -501,7 +504,7 @@ class FSM(Node):
             except ValueError:
                 print(f"{curPoint} not found in the list.")
             if index == 0: # Is at Goal 
-                self.get_logger().info(f'{self.get_name()} Have reached the beginging of site')
+                self.get_logger().info(f'Have reached the beginging of site')
                 self._cur_state = FSM_STATES.RETURNING_FROM_TASK
             else: 
                 self._cur_state = FSM_STATES.RETURNING_FROM_RADIO_SITE
@@ -517,13 +520,13 @@ class FSM(Node):
 
     # HERE, WE ARE RETURNING TO THE ORIGIN (NOT THE POINT WHERE WE STARTED THE TASK, BUT WHERE WE STARTED THE PROGRAM)
     def _do_state_returning_from_task(self):
-        self.get_logger().info(f'{self.get_name()} returning from task ')
+        self.get_logger().info(f'{self.get_name()} RETURNING_FROM_TASK ')
         if self._drive_to_goal(0.0, 0.0, 0):
             self._cur_state = FSM_STATES.TASK_DONE
 
     # THIS IS THE STATE WHERE WE RECOGNIZE THAT A SPECIFIC TASK IS DONE
     def _do_state_task_done(self):
-        self.get_logger().info(f'{self.get_name()} task done')
+        self.get_logger().info(f'{self.get_name()} TASK_DONE')
 
     # AT_START = 'AT STart',
     # FIND_PATH = 'Finding Path',
@@ -537,6 +540,7 @@ class FSM(Node):
     def _state_machine(self):
         if self._cur_state == FSM_STATES.AT_START:
             self._do_state_at_start()
+            
         
         elif self._cur_state == FSM_STATES.HEADING_TO_TASK:
             self._do_state_heading_to_task()
