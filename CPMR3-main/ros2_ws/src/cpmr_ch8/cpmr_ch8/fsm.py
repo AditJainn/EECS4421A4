@@ -107,7 +107,7 @@ class FSM(Node):
         self.pathList = [] 
         self.robotSpeed=0.5
         self.currentIndex =0
-        self.numberOfNodes = 50
+        self.numberOfNodes = 300
 
         self.fileName = "map.json"
         self.world_size = (1000, 1000)
