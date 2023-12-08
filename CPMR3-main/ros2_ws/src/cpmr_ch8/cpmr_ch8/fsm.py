@@ -1,5 +1,6 @@
 from enum import Enum
 import math
+from math import atan2
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -95,15 +96,18 @@ class FSM(Node):
         # the blackboard
         self._cur_x = 0.0
         self._cur_y = 0.0
-        self._cur_theta = 0.0
+        # self._cur_theta = 0.0
         self._cur_state = FSM_STATES.AT_START
+
+        self.max_vel = 0.2
+        self.max_gain = 5.0
         self._start_time = self.get_clock().now().nanoseconds * 1e-9
         self.currentGoal = []
         self.goalList = [[6,6,math.pi/2],[6,8,math.pi],[6.5,8,3*(math.pi/2)],[6.5,6,math.pi]]
         self.pathList = [] 
-        self.robotSpeed=0.3
+        self.robotSpeed=0.5
         self.currentIndex =0
-        self.numberOfNodes = 500
+        self.numberOfNodes = 50
 
         self.fileName = "map.json"
         self.world_size = (1000, 1000)
@@ -339,7 +343,42 @@ class FSM(Node):
 
 # END PATH FINDING COMPONENT
 #===========================================================================================================================
+    def _drive_to_goal_butBetter(self, goal_x, goal_y):
+        self.get_logger().info(f'{self.get_name()} Driving but better ')
+        x_diff = goal_x - self._cur_x
+        y_diff = goal_y - self._cur_y
+        dist = x_diff * x_diff + y_diff * y_diff
+        angleToGoal = atan2(y_diff,x_diff)
+        twist = Twist()
 
+        cur_t = angleToGoal
+
+        max_pos_err = 0.05
+        max_vel = 1.2
+        vel_gain = 5.0
+        if dist > max_pos_err: # is the distance far enough to travel to ?
+            # The X speed should be the distance
+
+            vector = [x_diff * vel_gain, y_diff * vel_gain]
+
+            mag = math.sqrt(vector[0]**2 + vector[1]**2 )
+            if mag > max_vel:
+                vector[0] /= mag
+                vector[1] /= mag
+
+                vector[0] *= max_vel
+                vector[1] *= max_vel
+
+            x = vector[0]
+            y = vector[1]
+
+            twist.linear.x = x * math.cos(cur_t) + y * math.sin(cur_t)
+            twist.linear.y = -x * math.sin(cur_t) + y * math.cos(cur_t)
+            
+            self._publisher.publish(twist)
+            return False 
+    
+    
     def _drive_to_goal(self, goal_x, goal_y, goal_theta):
         self.get_logger().info(f'CURRENT GOAL ({goal_x}, {goal_y})')
         self.get_logger().info(f'{self.get_name()} drive to goal')
@@ -347,17 +386,25 @@ class FSM(Node):
 
         x_diff = goal_x - self._cur_x
         y_diff = goal_y - self._cur_y
-        dist = x_diff * x_diff + y_diff * y_diff
-        self.get_logger().info(f'{self.get_name()} {x_diff} {y_diff}')
+        dist = abs(x_diff * x_diff + y_diff * y_diff)
+        self.get_logger().info(f'{self.get_name()} {round(x_diff,2)} {round(y_diff,2)}')
 
         # turn to the goal
         heading = math.atan2(y_diff, x_diff)
-        if abs(self._cur_theta - heading) > math.pi/20 and dist > 0.03: 
+        isAtPoint = True
+        thetaDif = abs(self._cur_theta - heading)
+        twistSpeed = 0.05
+        if 0.1 < dist < 1.5 and ((0 < abs(x_diff) < 0.1 and abs(y_diff) > 0.1) or 
+                           (0 < abs(y_diff) < 0.1 and abs(x_diff) > 0.1) ):
+            print("____________REACHED EDGE CASE____________")
+        elif thetaDif > math.pi/20 and dist > 0.1: 
+            if thetaDif > 0.3:
+                twistSpeed = 0.5
             if heading > self._cur_theta:	
-                twist.angular.z = 0.1
+                twist.angular.z = twistSpeed
             else:
-               twist.angular.z = -0.10
-            self.get_logger().info(f'{self.get_name()} turning towards goal')
+               twist.angular.z = -1*twistSpeed
+            self.get_logger().info(f'{self.get_name()} turning towards goal Theta Dif: {round(thetaDif,2)}')
             self._publisher.publish(twist)
             return False
 
@@ -369,7 +416,12 @@ class FSM(Node):
             return False
 
         # we are there, set the correct angle
-        if abs(goal_theta - self._cur_theta) > math.pi/20: 
+        # def _drive_to_goal_butBetter(self, goal_x, goal_y, goal_theta):
+        thetaDif = abs(goal_theta - self._cur_theta)
+        twistSpeed = 0.05
+        if thetaDif> math.pi/20: 
+            if thetaDif > 0.3:
+                twistSpeed = 0.4
             if goal_theta > self._cur_theta:
                 twist.angular.z = 0.005
             else:
